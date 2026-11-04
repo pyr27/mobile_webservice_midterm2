@@ -250,3 +250,9 @@ com_crashlytics_export_strings.xml
 crashlytics.properties
 crashlytics-build.properties
 fabric.properties
+
+# Edge client local files
+venv/
+runs/
+*.pt
+faces/

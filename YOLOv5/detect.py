@@ -66,6 +66,7 @@ from utils.general import (
 )
 from utils.torch_utils import select_device, smart_inference_mode
 from changedetection import ChangeDetection  # added
+from studysession import StudySession  # added (편의 기능 ①)
 
 
 @smart_inference_mode()
@@ -173,6 +174,7 @@ def run(
     model = DetectMultiBackend(weights, device=device, dnn=dnn, data=data, fp16=half)
     stride, names, pt = model.stride, model.names, model.pt
     cd = ChangeDetection(names)  # added
+    ss = StudySession(cd.token)  # added (편의 기능 ①: 본인 얼굴 식별 공부 세션)
     imgsz = check_img_size(imgsz, s=stride)  # check image size
 
     # Dataloader
@@ -287,6 +289,7 @@ def run(
             # Stream results
             im0 = annotator.result()
             cd.add(names, detected, save_dir, im0)  # added
+            ss.update(im0, det, names)  # added (편의 기능 ①)
             if view_img:
                 if platform.system() == "Linux" and p not in windows:
                     windows.append(p)

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Post, Profile
+from .models import Post, Profile, StudySession
 
 admin.site.register(Post)
 
@@ -12,3 +12,9 @@ class ProfileAdmin(admin.ModelAdmin):
     @admin.display(boolean=True, description='승인됨')
     def is_approved(self, obj):
         return obj.user.is_active
+
+
+@admin.register(StudySession)
+class StudySessionAdmin(admin.ModelAdmin):
+    list_display = ('user', 'started_at', 'ended_at', 'duration_sec', 'note')
+    list_filter = ('user',)

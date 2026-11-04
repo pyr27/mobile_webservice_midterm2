@@ -27,6 +27,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.asRequestBody
 import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -44,6 +45,14 @@ data class Post(
     val publishedDate: String,
     val imageUrl: String?
 )
+
+// 편의 기능 ②: 공부 시간 랭킹 (서버 /api_root/ranking/ 집계 결과)
+data class RankRow(val rank: Int, val username: String, val totalSec: Int, val sessions: Int)
+
+fun formatHms(sec: Int): String {
+    val h = sec / 3600; val m = sec % 3600 / 60; val s = sec % 60
+    return if (h > 0) "${h}시간 ${m}분 ${s}초" else "${m}분 ${s}초"
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,6 +81,8 @@ fun PhotoBlogScreen() {
     var selectedPost by remember { mutableStateOf<Post?>(null) }
     // 요구사항 3: 수정 다이얼로그 표시 여부
     var showEditDialog by remember { mutableStateOf(false) }
+    // 편의 기능 ②: 랭킹 화면 표시 여부
+    var showRanking by remember { mutableStateOf(false) }
 
     fun syncPosts() {
         scope.launch {
@@ -227,7 +238,9 @@ fun PhotoBlogScreen() {
         context.startActivity(Intent.createChooser(intent, "게시글 공유"))
     }
 
-    if (selectedPost != null) {
+    if (showRanking) {
+        RankingScreen(client = client, onBack = { showRanking = false })
+    } else if (selectedPost != null) {
         // 요구사항 3: 상세화면 (title, 게시자, text, date, 수정/삭제) + 요구사항 4: 공유
         PostDetailScreen(
             post = selectedPost!!,
@@ -259,6 +272,9 @@ fun PhotoBlogScreen() {
                 }
                 Button(onClick = { showUploadDialog = true }, modifier = Modifier.weight(1f)) {
                     Text("Upload")
+                }
+                Button(onClick = { showRanking = true }, modifier = Modifier.weight(1f)) {
+                    Text("랭킹")
                 }
             }
 
@@ -414,4 +430,66 @@ fun PostFormDialog(
             TextButton(onClick = onDismiss) { Text("취소") }
         }
     )
+}
+
+// 편의 기능 ②: 오늘/이번 주 순공부시간 랭킹 화면
+@Composable
+fun RankingScreen(client: OkHttpClient, onBack: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var period by remember { mutableStateOf("day") }
+    var rows by remember { mutableStateOf<List<RankRow>>(emptyList()) }
+    var status by remember { mutableStateOf("") }
+
+    fun load() {
+        scope.launch {
+            status = "불러오는 중..."
+            try {
+                val (list, cached) = withContext(Dispatchers.IO) {
+                    val request = Request.Builder().url("$SITE_URL/api_root/ranking/?period=$period").build()
+                    client.newCall(request).execute().use { response ->
+                        if (!response.isSuccessful) throw Exception("서버 응답 ${response.code}")
+                        val obj = JSONObject(response.body?.string() ?: "{}")
+                        val arr = obj.optJSONArray("results") ?: JSONArray()
+                        (0 until arr.length()).map { i ->
+                            val r = arr.getJSONObject(i)
+                            RankRow(r.optInt("rank"), r.optString("username"), r.optInt("total_sec"), r.optInt("sessions"))
+                        } to obj.optBoolean("cached")
+                    }
+                }
+                rows = list
+                status = if (list.isEmpty()) "기록된 공부 세션이 없습니다." else (if (cached) "서버 캐시 적중" else "서버 DB 집계")
+            } catch (e: Exception) {
+                status = "불러오기 실패: ${e.message}"
+            }
+        }
+    }
+
+    LaunchedEffect(period) { load() }
+
+    Column(modifier = Modifier.fillMaxSize().padding(12.dp)) {
+        TextButton(onClick = onBack) { Text("< 목록으로") }
+        Text("공부 시간 랭킹", style = MaterialTheme.typography.headlineSmall)
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { period = "day" }, enabled = period != "day") { Text("오늘") }
+            Button(onClick = { period = "week" }, enabled = period != "week") { Text("이번 주") }
+            Button(onClick = { load() }) { Text("새로고침") }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(status, style = MaterialTheme.typography.bodySmall)
+        Spacer(modifier = Modifier.height(8.dp))
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(rows) { r ->
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+                    Text("${r.rank}위", modifier = Modifier.width(48.dp), style = MaterialTheme.typography.titleMedium)
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(r.username, style = MaterialTheme.typography.titleMedium)
+                        Text("세션 ${r.sessions}회", style = MaterialTheme.typography.bodySmall)
+                    }
+                    Text(formatHms(r.totalSec), style = MaterialTheme.typography.bodyMedium)
+                }
+                Divider()
+            }
+        }
+    }
 }

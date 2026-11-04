@@ -13,6 +13,9 @@
 <body>
     <div class="page-header">
         <div class="top-actions">
+            <a href="{% url 'ranking' %}" class="btn btn-default btn-sm" title="공부 시간 랭킹">
+                <span class="glyphicon glyphicon-stats"></span> 랭킹
+            </a>
             {% if user.is_authenticated %}
             <span class="top-user">{{ user.username }}님</span>
             <a href="{% url 'post_new' %}" class="btn btn-default btn-sm" title="새 글 작성">
