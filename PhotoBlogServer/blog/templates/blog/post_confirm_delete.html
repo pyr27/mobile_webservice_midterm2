@@ -1,0 +1,10 @@
+{% extends 'blog/base.html' %}
+
+{% block content %}
+<h2>'{{ post.title }}' 게시글을 삭제하시겠습니까?</h2>
+<form method="post">
+    {% csrf_token %}
+    <button type="submit" class="btn btn-danger">삭제</button>
+    <a href="{% url 'post_detail' pk=post.pk %}" class="btn btn-default">취소</a>
+</form>
+{% endblock %}

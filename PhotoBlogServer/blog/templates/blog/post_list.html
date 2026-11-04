@@ -1,0 +1,46 @@
+{% extends 'blog/base.html' %}
+
+{% block content %}
+<form method="get" action="{% url 'post_list' %}" class="search-form">
+    <div class="input-group">
+        <input type="search" name="q" value="{{ q }}" class="form-control" placeholder="제목, 본문, 게시자로 검색">
+        <span class="input-group-btn">
+            <button type="submit" class="btn btn-default">
+                <span class="glyphicon glyphicon-search"></span> 검색
+            </button>
+        </span>
+    </div>
+</form>
+
+{% if q %}
+<p class="search-summary">
+    '<strong>{{ q }}</strong>' 검색 결과 {{ posts|length }}건
+    · <a href="{% url 'post_list' %}">전체 목록 보기</a>
+</p>
+{% endif %}
+
+<table class="table table-hover post-table">
+    <thead>
+        <tr>
+            <th>제목</th>
+            <th class="col-author">게시자</th>
+            <th class="col-date">작성일</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for post in posts %}
+        <tr>
+            <td><a href="{% url 'post_detail' pk=post.pk %}">{{ post.title }}</a></td>
+            <td class="col-author">{{ post.author.username }}</td>
+            <td class="col-date">{{ post.published_date|date:"Y-m-d H:i" }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="3" class="text-center text-muted">
+                {% if q %}검색 결과가 없습니다.{% else %}아직 게시글이 없습니다.{% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

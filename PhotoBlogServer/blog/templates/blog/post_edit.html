@@ -1,0 +1,11 @@
+{% extends 'blog/base.html' %}
+
+{% block content %}
+    <h1>{% if post %}게시글 수정{% else %}새 게시글{% endif %}</h1>
+    <form method="POST" class="post-form" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="save btn btn-primary">저장</button>
+        <a href="{% if post %}{% url 'post_detail' pk=post.pk %}{% else %}{% url 'post_list' %}{% endif %}" class="btn btn-default">취소</a>
+    </form>
+{% endblock %}

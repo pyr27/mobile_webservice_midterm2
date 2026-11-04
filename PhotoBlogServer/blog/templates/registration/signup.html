@@ -1,0 +1,15 @@
+{% extends 'blog/base.html' %}
+
+{% block content %}
+<h2>회원가입</h2>
+<div class="alert alert-info">
+    아이디, 비밀번호, 전화번호를 입력해 가입을 신청하세요.<br>
+    <strong>관리자 승인 후</strong> 정식 회원이 되며, 그때부터 로그인할 수 있습니다.
+</div>
+<form method="post" class="post-form">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">가입 신청</button>
+    <a href="{% url 'post_list' %}" class="btn btn-default">취소</a>
+</form>
+{% endblock %}
