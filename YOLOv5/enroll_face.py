@@ -28,7 +28,7 @@ def create_lbph():
     return face.LBPHFaceRecognizer.create()
 
 
-def main(name, source, samples):
+def main(name, source, samples, interval):
     if not hasattr(cv2, 'face'):
         raise SystemExit('cv2.face 가 없습니다. 실행: pip uninstall -y opencv-python && pip install opencv-contrib-python')
 
@@ -46,16 +46,18 @@ def main(name, source, samples):
             count += 1
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
         cv2.putText(frame, f'{name}: {count}/{samples}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        cv2.putText(frame, 'look at camera, turn head slowly  (s: save, q: quit)', (10, frame.shape[0] - 12),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1)
         cv2.imshow('enroll_face', frame)
-        key = cv2.waitKey(100) & 0xFF
+        key = cv2.waitKey(interval) & 0xFF
         if key == ord('q'):
             break
         if key == ord('s') and faces:
             break
     cap.release()
-    cv2.destroyAllWindows()
 
     if len(faces) < 5:
+        cv2.destroyAllWindows()
         raise SystemExit(f'수집된 얼굴이 너무 적습니다 ({len(faces)}장). 조명을 밝게 하고 다시 시도하세요.')
 
     recognizer = create_lbph()
@@ -65,11 +67,22 @@ def main(name, source, samples):
     recognizer.write(str(out / f'{name}.yml'))
     print(f'saved: {out / (name + ".yml")} ({len(faces)} samples)')
 
+    # 수집한 얼굴 샘플 미리보기 + 저장 결과 화면 (키를 누를 때까지 유지)
+    thumbs = [cv2.resize(f, (100, 100)) for f in faces[:10]]
+    sheet = cv2.cvtColor(np.hstack(thumbs), cv2.COLOR_GRAY2BGR)
+    banner = np.zeros((60, sheet.shape[1], 3), np.uint8)
+    cv2.putText(banner, f'saved faces/{name}.yml  ({len(faces)} samples)  - press any key', (10, 38),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+    cv2.imshow('enroll_face', np.vstack([banner, sheet]))
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
     ap.add_argument('--name', required=True, help='서버 계정 username')
     ap.add_argument('--source', type=int, default=0)
     ap.add_argument('--samples', type=int, default=30)
+    ap.add_argument('--interval', type=int, default=400, help='샘플 간격(ms)')
     a = ap.parse_args()
-    main(a.name, a.source, a.samples)
+    main(a.name, a.source, a.samples, a.interval)

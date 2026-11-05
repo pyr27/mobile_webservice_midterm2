@@ -1,4 +1,4 @@
-plugins {
+﻿plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
@@ -53,4 +53,9 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("io.coil-kt:coil-compose:2.6.0")
+    // On-device image labeling (ML Kit, bundled model)
+    implementation("com.google.mlkit:image-labeling:17.0.9")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
+    implementation("com.google.mlkit:image-labeling:17.0.9")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
 }
