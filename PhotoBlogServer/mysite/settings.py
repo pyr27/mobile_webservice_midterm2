@@ -127,18 +127,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
         # 'rest_framework.permissions.IsAdminUser',
     ],
-    'DEFAULT_THROTTLE_RATES': {
-        'ranking': '30/min',  # 랭킹 API 호출 제한 (비기능: 과도한 집계 요청 방지)
-    },
     'PAGE_SIZE': 10
-}
-
-# 랭킹 집계 결과 캐시 (단일 프로세스 메모리 캐시; Pythonanywhere 무료 플랜에서도 동작)
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-        'LOCATION': 'photoblog-ranking',
-    }
 }
 
 LOGIN_REDIRECT_URL = 'post_list'
