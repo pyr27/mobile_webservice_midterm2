@@ -42,7 +42,8 @@ class PresenceDetection:
     username = os.environ.get('BLOG_USER', 'admin')
     password = os.environ.get('BLOG_PASS', 'password')
     ABSENT_SEC = float(os.environ.get('ABSENT_SEC', 30))   # 이 시간 이상 안 보이면 '자리 비움'
-    THRESHOLD = float(os.environ.get('FACE_THRESHOLD', 70))  # LBPH 거리: 작을수록 유사 (보통 50~80)
+    THRESHOLD = float(os.environ.get('FACE_THRESHOLD', 60))  # LBPH 거리: 작을수록 유사. 본인≈40, 타인≈75~ 사이에 선을 긋는다
+    CONFIRM_FRAMES = int(os.environ.get('CONFIRM_FRAMES', 3))  # 연속 N프레임 인식돼야 '재석' 확정 (오인식 1프레임 방지)
 
     def __init__(self, token=None):
         self.enabled = False
@@ -59,6 +60,8 @@ class PresenceDetection:
         self.since = time.time()      # 현재 상태가 시작된 시각
         self.last_seen = 0.0          # 등록 사용자가 마지막으로 보인 시각
         self.since_start = True       # 아직 한 번도 인식되지 않음
+        self.streak = 0               # 연속 인식 프레임 수
+        self.others = 0               # 이번 프레임에서 등록 사용자가 아닌 사람 수 (침입자 판정에 사용)
         self.enabled = True
         print(f'[Presence] enabled for {self.username} (absent after {self.ABSENT_SEC:.0f}s)')
 
@@ -79,8 +82,9 @@ class PresenceDetection:
 
     # ------------------------------------------------------------------
     def is_owner(self, frame, det, names):
-        """person 박스 안에서 얼굴을 찾아 등록 사용자인지 판정 (얼굴 박스/라벨도 그림)."""
+        """person 박스마다 얼굴을 찾아 등록 사용자인지 판정. 등록 사용자가 아닌 사람 수는 self.others 에 기록."""
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        found, others = False, 0
         for *xyxy, conf, cls in det:
             if names[int(cls)] != 'person':
                 continue
@@ -88,24 +92,30 @@ class PresenceDetection:
             roi = gray[max(0, y1):y2, max(0, x1):x2]
             if roi.size == 0:
                 continue
+            owner_here = False
             for (fx, fy, fw, fh) in self.detector.detectMultiScale(roi, 1.2, 5, minSize=(60, 60)):
                 face = cv2.resize(roi[fy:fy + fh, fx:fx + fw], (200, 200))
                 label, dist = self.recognizer.predict(face)
-                owner = label == 0 and dist < self.THRESHOLD
+                owner = label == 0 and dist < self.THRESHOLD  # label 1(타인 샘플)에 더 가까우면 거리와 무관하게 타인
                 color = (0, 255, 0) if owner else (0, 0, 255)
                 cv2.rectangle(frame, (x1 + fx, y1 + fy), (x1 + fx + fw, y1 + fy + fh), color, 2)
                 cv2.putText(frame, f'{self.username if owner else "unknown"} {dist:.0f}', (x1 + fx, y1 + fy - 6),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
-                if owner:
-                    return True
-        return False
+                owner_here = owner_here or owner
+            found = found or owner_here
+            if not owner_here:
+                others += 1  # 얼굴이 안 보이거나 등록 사용자가 아닌 person
+        self.others = others
+        return found
 
     def update(self, frame, det, names, save_dir):
         """매 프레임 호출: 상태 갱신 + 오버레이. 상태가 바뀌면 서버에 게시."""
         if not self.enabled:
             return
         now = time.time()
-        seen = self.is_owner(frame, det, names)
+        raw = self.is_owner(frame, det, names)
+        self.streak = self.streak + 1 if raw else 0
+        seen = self.streak >= self.CONFIRM_FRAMES  # 연속 N프레임 인식돼야 '보임'으로 인정
         if seen:
             self.last_seen = now
         away_for = now - self.last_seen
@@ -129,7 +139,15 @@ class PresenceDetection:
                 text += f'  (미인식 {int(away_for)}s)'
         else:
             text, color = f'자리 비움 {fmt(now - self.since)}', (0, 0, 255)
+            if 0 < self.streak < self.CONFIRM_FRAMES:
+                text += f'  (확인 중 {self.streak}/{self.CONFIRM_FRAMES})'
+        if self.others:
+            text += f'  / 미등록 인원 {self.others}'
         self.draw(frame, text, color)
+
+    def owner_only(self):
+        """등록 사용자만 있고 미등록 인원이 없는 프레임이면 True → 침입자 판정에서 person 제외."""
+        return self.enabled and self.present and self.others == 0
 
     def draw(self, frame, text, color_bgr):
         if self.font is None:  # 한글 폰트 없으면 영문

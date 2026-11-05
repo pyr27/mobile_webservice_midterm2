@@ -386,6 +386,8 @@ fun PostFormDialog(
             ImageLabelerOptions.Builder().setConfidenceThreshold(0.6f).build()
         )
     }
+    // 다이얼로그가 닫히면 ML Kit 네이티브 리소스 해제
+    DisposableEffect(Unit) { onDispose { labeler.close() } }
     LaunchedEffect(selectedImageUri) {
         val uri = selectedImageUri ?: return@LaunchedEffect
         labelStatus = "온디바이스 이미지 분석 중..."

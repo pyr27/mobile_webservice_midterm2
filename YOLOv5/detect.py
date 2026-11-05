@@ -175,6 +175,7 @@ def run(
     stride, names, pt = model.stride, model.names, model.pt
     cd = ChangeDetection(names)  # added
     pd = PresenceDetection(cd.token)  # added (편의 기능 ①: 등록 사용자 얼굴 식별 → 재석/자리 비움)
+    person_cls = next(i for i, n in (names.items() if isinstance(names, dict) else enumerate(names)) if n == 'person')  # added
     imgsz = check_img_size(imgsz, s=stride)  # check image size
 
     # Dataloader
@@ -288,8 +289,10 @@ def run(
 
             # Stream results
             im0 = annotator.result()
+            pd.update(im0, det, names, save_dir)  # added (편의 기능 ①: 등록 사용자 재석/자리 비움)
+            if pd.owner_only():  # added (편의 기능 ①: 등록 사용자는 침입자가 아님 → 미등록 인원만 침입 게시)
+                detected[person_cls] = 0
             cd.add(names, detected, save_dir, im0)  # added
-            pd.update(im0, det, names, save_dir)  # added (편의 기능 ①)
             if view_img:
                 if platform.system() == "Linux" and p not in windows:
                     windows.append(p)
